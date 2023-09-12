@@ -50,5 +50,14 @@ namespace ChessChallenge.Example
             board.UndoMove(move);
             return isMate;
         }
+
+        public void ToggleBitboard(Board board)
+        {
+            return;
+        }
+        public void GenerateBitboard(Board board)
+        {
+            return;
+        }
     }
 }
