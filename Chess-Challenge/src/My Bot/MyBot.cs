@@ -39,13 +39,19 @@ public class MyBot : IChessBot
                 highestValueCapture = capturedPieceValue;
             }
         }
+
+        GenerateAttacks(board);
+
+        return moveToPlay;
+    }
+
+    public void GenerateAttacks(Board board)
+    {
         board.MakeMove(moveToPlay);
         board.ForceSkipTurn();
         GenerateBitboard(board);
         board.ForceSkipTurn();
         board.UndoMove(moveToPlay);
-
-        return moveToPlay;
     }
 
     public void GenerateBitboard(Board board)
