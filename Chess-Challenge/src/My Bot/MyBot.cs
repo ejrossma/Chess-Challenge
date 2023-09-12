@@ -40,12 +40,12 @@ public class MyBot : IChessBot
             }
         }
 
-        GenerateAttacks(board);
+        GenerateAttacks(board, moveToPlay);
 
         return moveToPlay;
     }
 
-    public void GenerateAttacks(Board board)
+    public void GenerateAttacks(Board board, Move moveToPlay)
     {
         board.MakeMove(moveToPlay);
         board.ForceSkipTurn();
