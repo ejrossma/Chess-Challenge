@@ -61,6 +61,8 @@ public class MyBot : IChessBot
         {
             myAttackBitboard = myAttackBitboard | BitboardHelper.GetPieceAttacks(move.MovePieceType, move.StartSquare, board, board.IsWhiteToMove);
         }
+        if (bitboardOn)
+            BitboardHelper.VisualizeBitboard(myAttackBitboard);
     }
 
     public void ToggleBitboard(Board board)
