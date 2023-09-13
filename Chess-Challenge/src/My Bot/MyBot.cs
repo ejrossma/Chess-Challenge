@@ -1,5 +1,6 @@
 ﻿using ChessChallenge.API;
 using System;
+using System.Xml;
 
 public class MyBot : IChessBot
 {
@@ -40,9 +41,40 @@ public class MyBot : IChessBot
             }
         }
 
+        Console.WriteLine("Basic Evaluation Before Bot Move: " + GetBasicEvaluation(board));
+
+        //Generate bitboard of squares bot is attacking
         GenerateAttacks(board, moveToPlay);
 
         return moveToPlay;
+    }
+
+    //use to tell if a move was successful
+    int GetBasicEvaluation(Board board)
+    {
+        int white = 0;
+        int black = 0;
+
+        PieceList[] pieces = board.GetAllPieceLists();
+        foreach(PieceList pieceList in pieces)
+        {
+            foreach(Piece piece in pieceList)
+            {
+                if (piece.IsWhite)
+                {
+                    white += pieceValues[(int)piece.PieceType];
+                }
+                else
+                {
+                    black += pieceValues[(int)piece.PieceType];
+                }
+            }
+        }
+
+        if (board.IsWhiteToMove)
+            return (white - black) / 100;
+        else
+            return (black - white) / 100;
     }
 
     public void GenerateAttacks(Board board, Move moveToPlay)
@@ -50,6 +82,7 @@ public class MyBot : IChessBot
         board.MakeMove(moveToPlay);
         board.ForceSkipTurn();
         GenerateBitboard(board);
+        Console.WriteLine("Basic Evaluation After Bot Move: " + GetBasicEvaluation(board));
         board.ForceSkipTurn();
         board.UndoMove(moveToPlay);
     }
