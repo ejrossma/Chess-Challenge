@@ -29,19 +29,19 @@ namespace ChessChallenge.Application
             {
                 controller.StartNewBotMatch(ChallengeController.PlayerType.MyBot, ChallengeController.PlayerType.EvilBot);
             }
-            if (NextButtonInRow("Toggle Bitboard", ref buttonPos, spacing, buttonSize))
-            {
-                //-1 = null | 0 = false | 1 = true
-                int opponentIsWhite = -1;
+            //if (NextButtonInRow("Toggle Bitboard", ref buttonPos, spacing, buttonSize))
+            //{
+            //    //-1 = null | 0 = false | 1 = true
+            //    int opponentIsWhite = -1;
 
-                if (controller.PlayerWhite.PlayerType == ChallengeController.PlayerType.Human)
-                    opponentIsWhite = 0;
-                else if (controller.PlayerBlack.PlayerType == ChallengeController.PlayerType.Human)
-                    opponentIsWhite = 1;
+            //    if (controller.PlayerWhite.PlayerType == ChallengeController.PlayerType.Human)
+            //        opponentIsWhite = 0;
+            //    else if (controller.PlayerBlack.PlayerType == ChallengeController.PlayerType.Human)
+            //        opponentIsWhite = 1;
 
-                if (opponentIsWhite != -1)
-                    controller.ToggleAttackBitboard(opponentIsWhite);
-            }
+            //    if (opponentIsWhite != -1)
+            //        controller.ToggleAttackBitboard(opponentIsWhite);
+            //}
 
             // Page buttons
             buttonPos.Y += breakSpacing;

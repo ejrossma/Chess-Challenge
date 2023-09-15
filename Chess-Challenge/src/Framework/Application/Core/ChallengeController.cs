@@ -394,18 +394,18 @@ namespace ChessChallenge.Application
             MatchStatsUI.DrawMatchStats(this);
         }
 
-        public void ToggleAttackBitboard(int isOpponentWhite)
-        {
-            API.Board botBoard = new(board);
-            if (isOpponentWhite == 1)
-            {
-                PlayerWhite.Bot.ToggleBitboard(botBoard);
-            }
-            else
-            {
-                PlayerBlack.Bot.ToggleBitboard(botBoard);
-            }
-        }
+        //public void ToggleAttackBitboard(int isOpponentWhite)
+        //{
+        //    API.Board botBoard = new(board);
+        //    if (isOpponentWhite == 1)
+        //    {
+        //        PlayerWhite.Bot.ToggleBitboard(botBoard);
+        //    }
+        //    else
+        //    {
+        //        PlayerBlack.Bot.ToggleBitboard(botBoard);
+        //    }
+        //}
 
         static string GetPlayerName(ChessPlayer player) => GetPlayerName(player.PlayerType);
         static string GetPlayerName(PlayerType type) => type.ToString();

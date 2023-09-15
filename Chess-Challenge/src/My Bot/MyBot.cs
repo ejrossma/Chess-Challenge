@@ -23,9 +23,6 @@ public class MyBot : IChessBot
 
     public Move Think(Board board, Timer timer)
     {
-        //get random move
-        //Move moveToPlay = FindRandomMove(board);
-
         //get the best move
         Move moveToPlay = FindBestMove(board);
 
@@ -33,44 +30,25 @@ public class MyBot : IChessBot
         //GenerateAttacks(board, moveToPlay);
 
         //ensure move is legal
-        if (!board.GetLegalMoves().Contains(moveToPlay)) { throw new Exception("ERROR: I messed smt up"); }
+        if (!board.GetLegalMoves().Contains(moveToPlay)) { throw new Exception("ERROR: Attempted Move: " + moveToPlay.StartSquare + moveToPlay.TargetSquare); }
 
-        return moveToPlay;
-    }
-
-    Move FindRandomMove(Board board)
-    {
-        Move[] allMoves = board.GetLegalMoves();
-        // Pick a random move to play if nothing better is found
-        Random rng = new();
-        Move moveToPlay = allMoves[rng.Next(allMoves.Length)];
-        int highestValueCapture = 0;
-
-        foreach (Move move in allMoves)
-        {
-            // Always play checkmate in one
-            if (MoveIsCheckmate(board, move))
-            {
-                moveToPlay = move;
-                break;
-            }
-
-            // Find highest value capture
-            Piece capturedPiece = board.GetPiece(move.TargetSquare);
-            int capturedPieceValue = pieceValues[(int)capturedPiece.PieceType];
-
-            if (capturedPieceValue > highestValueCapture)
-            {
-                moveToPlay = move;
-                highestValueCapture = capturedPieceValue;
-            }
-        }
         return moveToPlay;
     }
 
     Move FindBestMove(Board board)
     {
+        // Always play checkmate in one
+        foreach (Move move in board.GetLegalMoves())
+        {
+            // Always play checkmate in one
+            if (MoveIsCheckmate(board, move))
+            {
+                return move;
+            }
+        }
+
         bestEval = -99999;
+        bestRootMove = Move.NullMove;
         Search(board, 4, negativeInfinity, positiveInfinity, Move.NullMove);
         return bestRootMove;
     }
@@ -178,39 +156,39 @@ public class MyBot : IChessBot
         return pawnAttackBoard;
     }
 
-    public void GenerateAttacks(Board board, Move moveToPlay)
-    {
-        board.MakeMove(moveToPlay);
-        board.ForceSkipTurn();
-        GenerateBitboard(board);
-        board.ForceSkipTurn();
-        board.UndoMove(moveToPlay);
-    }
+    //public void GenerateAttacks(Board board, Move moveToPlay)
+    //{
+    //    board.MakeMove(moveToPlay);
+    //    board.ForceSkipTurn();
+    //    GenerateBitboard(board);
+    //    board.ForceSkipTurn();
+    //    board.UndoMove(moveToPlay);
+    //}
 
-    public void GenerateBitboard(Board board)
-    {
-        myAttackBitboard = 0;
-        foreach (Move move in board.GetLegalMoves())
-        {
-            myAttackBitboard = myAttackBitboard | BitboardHelper.GetPieceAttacks(move.MovePieceType, move.StartSquare, board, board.IsWhiteToMove);
-        }
-        if (bitboardOn)
-            BitboardHelper.VisualizeBitboard(myAttackBitboard);
-    }
+    //public void GenerateBitboard(Board board)
+    //{
+    //    myAttackBitboard = 0;
+    //    foreach (Move move in board.GetLegalMoves())
+    //    {
+    //        myAttackBitboard = myAttackBitboard | BitboardHelper.GetPieceAttacks(move.MovePieceType, move.StartSquare, board, board.IsWhiteToMove);
+    //    }
+    //    if (bitboardOn)
+    //        BitboardHelper.VisualizeBitboard(myAttackBitboard);
+    //}
 
-    public void ToggleBitboard(Board board)
-    {
-        if (bitboardOn)
-        {
-            BitboardHelper.StopVisualizingBitboard();
-            bitboardOn = false;
-        }
-        else
-        {
-            BitboardHelper.VisualizeBitboard(myAttackBitboard);
-            bitboardOn = true;
-        }
-    }
+    //public void ToggleBitboard(Board board)
+    //{
+    //    if (bitboardOn)
+    //    {
+    //        BitboardHelper.StopVisualizingBitboard();
+    //        bitboardOn = false;
+    //    }
+    //    else
+    //    {
+    //        BitboardHelper.VisualizeBitboard(myAttackBitboard);
+    //        bitboardOn = true;
+    //    }
+    //}
 
     int GetPieceValue(PieceType pieceType)
     {
