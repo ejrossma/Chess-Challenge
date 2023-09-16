@@ -15,9 +15,10 @@ public class MyBot : IChessBot
     ulong pawnAttackBitboard;
     
     //testing & debugging
-    ulong myAttackBitboard = 0;
-    bool bitboardOn = false;
+    //ulong myAttackBitboard = 0;
+    //bool bitboardOn = false;
 
+    //for selecting best move
     Move bestRootMove;
     int bestEval;
 
@@ -117,12 +118,14 @@ public class MyBot : IChessBot
     {
         int white = 0;
         int black = 0;
+        int numPieces = 0;
 
         PieceList[] pieces = board.GetAllPieceLists();
         foreach (PieceList pieceList in pieces)
         {
             foreach (Piece piece in pieceList)
             {
+                numPieces++;
                 if (piece.IsWhite)
                 {
                     white += pieceValues[(int)piece.PieceType];
@@ -133,9 +136,40 @@ public class MyBot : IChessBot
                 }
             }
         }
+
+        //float endgameWeight = numPieces < 10 ? (float)1 / (float)(numPieces + 64) : 0;
+        //int kingToCornerWeight = ForceKingToCorner(board.GetPieceList(PieceType.King, board.IsWhiteToMove)[0].Square.Index, board.GetPieceList(PieceType.King, !board.IsWhiteToMove)[0].Square.Index, endgameWeight);
+
         int whosTurn = board.IsWhiteToMove ? 1 : -1;
+        Console.WriteLine("Endgame Weight: " + endgameWeight + " | King To Corner Weight: " + kingToCornerWeight);
 
         return ((white - black) * whosTurn) / 100;
+        //return ((white - black + kingToCornerWeight) * whosTurn) / 100;
+    }
+
+    int ForceKingToCorner(int friendlyKingSquare, int opponentKingSquare, float endgameWeight)
+    {
+        int evaluation = 0;
+
+        //prioritize positions where the opposing king has been forced from the center
+        int opponentKingRank = opponentKingSquare >> 3;
+        int opponentKingFile = opponentKingSquare & 0b000111;
+
+        int oppKingDstToCenterRank = Math.Max(3 - opponentKingRank, opponentKingRank - 4);
+        int oppKingDstToCenterFile = Math.Max(3 - opponentKingFile, opponentKingFile - 4);
+        int oppKingDstFromCenter = oppKingDstToCenterFile + oppKingDstToCenterRank;
+        evaluation += oppKingDstFromCenter;
+
+        //incentivise moving king closer to opponent king
+        int friendlyKingRank = friendlyKingSquare >> 3;
+        int friendlyKingFile = friendlyKingSquare & 0b000111;
+
+        int dstBetweenKingsRank = Math.Abs(friendlyKingRank - opponentKingRank);
+        int dstBetweenKingsFile = Math.Abs(friendlyKingFile - opponentKingFile);
+        int dstBetweenKings = dstBetweenKingsRank + dstBetweenKingsFile;
+        evaluation += 14 - dstBetweenKings;
+
+        return (int)(evaluation * 10 * endgameWeight);
     }
 
     bool IsPawnAttacking(Square targetSquare, ulong pawnAttackBoard)
@@ -154,6 +188,82 @@ public class MyBot : IChessBot
             pawnAttackBoard = pawnAttackBoard | BitboardHelper.GetPawnAttacks(piece.Square, !board.IsWhiteToMove);
         
         return pawnAttackBoard;
+    }
+
+    int GetPieceValue(PieceType pieceType)
+    {
+        return pieceValues[(int)pieceType];
+    }
+
+    // Test if this move gives checkmate
+    bool MoveIsCheckmate(Board board, Move move)
+    {
+        board.MakeMove(move);
+        bool isMate = board.IsInCheckmate();
+        board.UndoMove(move);
+        return isMate;
+    }
+
+    //prioritize high value moves
+    //unsure how to implement this into the algorithm
+    List<Move> OrderMoves(Move[] moves, Board board)
+    {
+        List<Tuple<Move, int>> moveOrder = new List<Tuple<Move, int>>();
+
+        pawnAttackBitboard = GeneratePawnAttackMap(board);
+        //based on what category a move falls into it should be placed either at the front, middle, or back of the new array
+        foreach (Move move in moves)
+        {
+            int movePriority = 0;
+            PieceType movePieceType = move.MovePieceType;
+            PieceType capturePieceType = move.CapturePieceType;
+
+            //should capture opponents best pieces
+            if (capturePieceType != PieceType.None)
+            {
+                movePriority = 10 * GetPieceValue(capturePieceType) - GetPieceValue(movePieceType);
+            }
+
+            //promoting pawns is good
+            if (move.IsPromotion)
+            {
+                movePriority += GetPieceValue(move.PromotionPieceType);
+            }
+
+            //moving into opponents pawns is bad
+            bool movingIntoPawnAttack = IsPawnAttacking(move.TargetSquare, pawnAttackBitboard);
+            if (movingIntoPawnAttack)
+            {
+                movePriority -= GetPieceValue(movePieceType);
+            }
+
+            //place move into correct spot in moveOrder
+            Tuple<Move, int> moveTuple = new Tuple<Move, int>(move, movePriority);
+
+            bool inserted = false;
+            for (int i = 0; i < moveOrder.Count; i++)
+            {
+                //if higher priority than another move insert it at that spot
+                if (movePriority >= moveOrder[i].Item2)
+                {
+                    moveOrder.Insert(i, moveTuple);
+                    inserted = true;
+                    break;
+                }
+            }
+            //if not greater or equal to any of the values in moveOrder add to back
+            if (!inserted)
+                moveOrder.Add(moveTuple);
+        }
+
+        //get the order but leave the int values
+        List<Move> orderedMoveList = new List<Move>();
+        foreach (Tuple<Move, int> move in moveOrder)
+        {
+            orderedMoveList.Add(move.Item1);
+        }
+
+        return orderedMoveList;
     }
 
     //public void GenerateAttacks(Board board, Move moveToPlay)
@@ -189,80 +299,4 @@ public class MyBot : IChessBot
     //        bitboardOn = true;
     //    }
     //}
-
-    int GetPieceValue(PieceType pieceType)
-    {
-        return pieceValues[(int)pieceType];
-    }
-
-    // Test if this move gives checkmate
-    bool MoveIsCheckmate(Board board, Move move)
-    {
-        board.MakeMove(move);
-        bool isMate = board.IsInCheckmate();
-        board.UndoMove(move);
-        return isMate;
-    }
-
-    //prioritize high value moves
-    //unsure how to implement this into the algorithm
-    List<Move> OrderMoves(Move[] moves, Board board)
-    {
-        List<Tuple<Move, int>> moveOrder = new List<Tuple<Move, int>>();
-        
-        pawnAttackBitboard = GeneratePawnAttackMap(board);
-        //based on what category a move falls into it should be placed either at the front, middle, or back of the new array
-        foreach (Move move in moves)
-        {
-            int movePriority = 0;
-            PieceType movePieceType = move.MovePieceType;
-            PieceType capturePieceType = move.CapturePieceType;
-
-            //should capture opponents best pieces
-            if (capturePieceType != PieceType.None)
-            {
-                movePriority = 10 * GetPieceValue(capturePieceType) - GetPieceValue(movePieceType);
-            }
-
-            //promoting pawns is good
-            if (move.IsPromotion)
-            {
-                movePriority += GetPieceValue(move.PromotionPieceType);
-            }
-
-            //moving into opponents pawns is bad
-            bool movingIntoPawnAttack = IsPawnAttacking(move.TargetSquare, pawnAttackBitboard);
-            if (movingIntoPawnAttack)
-            {
-                movePriority -= GetPieceValue(movePieceType);
-            }
-
-            //place move into correct spot in moveOrder
-            Tuple<Move, int> moveTuple = new Tuple<Move, int>(move, movePriority);
-            
-            bool inserted = false;
-            for (int i = 0; i < moveOrder.Count; i++)
-            {
-                //if higher priority than another move insert it at that spot
-                if (movePriority >= moveOrder[i].Item2)
-                {
-                    moveOrder.Insert(i, moveTuple);
-                    inserted = true;
-                    break;
-                }
-            }
-            //if not greater or equal to any of the values in moveOrder add to back
-            if (!inserted)
-                moveOrder.Add(moveTuple);
-        }
-
-        //get the order but leave the int values
-        List<Move> orderedMoveList = new List<Move>();
-        foreach (Tuple<Move, int> move in moveOrder)
-        {
-            orderedMoveList.Add(move.Item1);
-        }
-
-        return orderedMoveList;
-    }
 }
