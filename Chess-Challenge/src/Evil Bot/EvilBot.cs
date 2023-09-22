@@ -34,16 +34,6 @@ namespace ChessChallenge.Example
 
         Move FindBestMove(Board board)
         {
-            // Always play checkmate in one
-            foreach (Move move in board.GetLegalMoves())
-            {
-                // Always play checkmate in one
-                if (MoveIsCheckmate(board, move))
-                {
-                    return move;
-                }
-            }
-
             bestEval = -99999;
             bestRootMove = Move.NullMove;
             Search(board, 4, negativeInfinity, positiveInfinity, Move.NullMove);
@@ -53,10 +43,20 @@ namespace ChessChallenge.Example
         int Search(Board board, int depth, int alpha, int beta, Move rootMove)
         {
             if (depth == 0)
-                return SearchCaptures(board, alpha, beta, rootMove);
+            {
+                int eval = SearchCaptures(board, alpha, beta, rootMove);
+                if (eval > bestEval && rootMove != Move.NullMove)
+                {
+                    bestEval = eval;
+                    bestRootMove = rootMove;
+
+                    Console.WriteLine("Evil Bot New Best Evaluation: " + eval + " by moving " + rootMove);
+                }
+                return eval;
+            }
 
             List<Move> moves = OrderMoves(board.GetLegalMoves(), board);
-            //either in check or draw
+            //either in checkmate or draw
             if (moves.Count == 0)
             {
                 if (board.IsInCheck())
@@ -99,12 +99,6 @@ namespace ChessChallenge.Example
                 if (evaluation >= beta)
                     return beta;
                 alpha = Math.Max(alpha, evaluation);
-            }
-
-            if (alpha > bestEval)
-            {
-                bestEval = alpha;
-                bestRootMove = rootMove;
             }
 
             return alpha;
@@ -158,15 +152,6 @@ namespace ChessChallenge.Example
             return pieceValues[(int)pieceType];
         }
 
-        // Test if this move gives checkmate
-        bool MoveIsCheckmate(Board board, Move move)
-        {
-            board.MakeMove(move);
-            bool isMate = board.IsInCheckmate();
-            board.UndoMove(move);
-            return isMate;
-        }
-
         //prioritize high value moves
         //unsure how to implement this into the algorithm
         List<Move> OrderMoves(Move[] moves, Board board)
@@ -182,7 +167,7 @@ namespace ChessChallenge.Example
                 PieceType capturePieceType = move.CapturePieceType;
 
                 //should capture opponents best pieces
-                if (capturePieceType != PieceType.None)
+                if (capturePieceType != PieceType.None && movePieceType != PieceType.King)
                 {
                     movePriority = 10 * GetPieceValue(capturePieceType) - GetPieceValue(movePieceType);
                 }

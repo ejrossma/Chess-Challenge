@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Linq;
+using System.Diagnostics;
 
 public class MyBot : IChessBot
 {
@@ -13,135 +14,133 @@ public class MyBot : IChessBot
 
     //tracking opposing pawn structure
     ulong pawnAttackBitboard;
-    
-    //testing & debugging
-    //ulong myAttackBitboard = 0;
-    //bool bitboardOn = false;
 
-    //for selecting best move
-    Move bestRootMove;
-    int bestEval;
+    //tracking best move
+    Move bestMove = Move.NullMove;
+    int bestEval = -99999;
+
+    struct SearchResult
+    {
+        public int bestEvaluation;
+        public Move bestMoveThisSearch;
+    }
 
     public Move Think(Board board, Timer timer)
     {
         //get the best move
         Move moveToPlay = FindBestMove(board);
 
-        //update bitboard
-        //GenerateAttacks(board, moveToPlay);
-
         //ensure move is legal
         if (!board.GetLegalMoves().Contains(moveToPlay)) { throw new Exception("ERROR: Attempted Move: " + moveToPlay.StartSquare + moveToPlay.TargetSquare); }
+
+        pawnAttackBitboard = GeneratePawnAttackMap(board);
+        BitboardHelper.VisualizeBitboard(pawnAttackBitboard);
 
         return moveToPlay;
     }
 
     Move FindBestMove(Board board)
     {
-        // Always play checkmate in one
-        foreach (Move move in board.GetLegalMoves())
-        {
-            // Always play checkmate in one
-            if (MoveIsCheckmate(board, move))
-            {
-                return move;
-            }
-        }
-
-        bestEval = -99999;
-        bestRootMove = Move.NullMove;
-        Search(board, 4, negativeInfinity, positiveInfinity, Move.NullMove);
-        return bestRootMove;
+        return Search(board, 4, negativeInfinity, positiveInfinity).bestMoveThisSearch;
     }
 
-    int Search(Board board, int depth, int alpha, int beta, Move rootMove)
+    SearchResult Search(Board board, int depth, int alpha, int beta)
     {
         if (depth == 0)
-            return SearchCaptures(board, alpha, beta, rootMove);
+            return SearchCaptures(board, alpha, beta);
 
         List<Move> moves = OrderMoves(board.GetLegalMoves(), board);
-        //either in check or draw
+        //either in checkmate or draw
         if (moves.Count == 0)
         {
             if (board.IsInCheck())
-                return negativeInfinity;
-            return 0;
+                return new SearchResult { bestEvaluation = negativeInfinity, bestMoveThisSearch = Move.NullMove };
+            return new SearchResult { bestEvaluation = 0, bestMoveThisSearch = Move.NullMove };
         }
+
+        bestMove = Move.NullMove;
+        bestEval = negativeInfinity;
 
         foreach (Move move in moves)
         {
-            int evaluation;
             board.MakeMove(move);
-            if (rootMove == Move.NullMove)
-                evaluation = -Search(board, depth - 1, -beta, -alpha, move);
-            else
-                evaluation = -Search(board, depth - 1, -beta, -alpha, rootMove);
+            int evaluation = -Search(board, depth - 1, -beta, -alpha).bestEvaluation;
             board.UndoMove(move);
+            
             if (evaluation >= beta)
-                return beta;
+                return new SearchResult { bestMoveThisSearch = Move.NullMove, bestEvaluation = beta };
+            
             alpha = Math.Max(alpha, evaluation);
+            if (alpha >= bestEval)
+            {
+                bestEval = alpha;
+                bestMove = move;
+            }
         }
-
-        return alpha;
+        
+        return new SearchResult { bestMoveThisSearch = bestMove, bestEvaluation = bestEval };
     }
 
-    int SearchCaptures(Board board, int alpha, int beta, Move rootMove)
+    SearchResult SearchCaptures(Board board, int alpha, int beta)
     {
-        //check evaluation see what the position is before capturing for comparison after
         int evaluation = Evaluate(board);
         if (evaluation >= beta)
-            return beta;
+            return new SearchResult { bestEvaluation = beta, bestMoveThisSearch = Move.NullMove };
         alpha = Math.Max(alpha, evaluation);
 
         List<Move> captureMoves = OrderMoves(board.GetLegalMoves(true), board);
+        bestMove = Move.NullMove;
+        bestEval = negativeInfinity;
 
         foreach (Move capMove in captureMoves)
         {
             board.MakeMove(capMove);
-            evaluation = -SearchCaptures(board, -beta, -alpha, rootMove);
+            evaluation = -SearchCaptures(board, -beta, -alpha).bestEvaluation;
             board.UndoMove(capMove);
+            
             if (evaluation >= beta)
-                return beta;
+                return new SearchResult { bestMoveThisSearch = Move.NullMove, bestEvaluation = beta };
             alpha = Math.Max(alpha, evaluation);
+            if (alpha >= bestEval)
+            {
+                bestEval = alpha;
+                bestMove = capMove;
+            }
         }
 
-        if (alpha > bestEval)
-        {
-            bestEval = alpha;
-            bestRootMove = rootMove;
-        }
-
-        return alpha;
+        return new SearchResult { bestEvaluation = bestEval, bestMoveThisSearch = bestMove };
     }
 
     int Evaluate(Board board)
     {
         int white = 0;
         int black = 0;
-        int numPieces = 0;
+        int numPiecesWhite = 0;
+        int numPiecesBlack = 0;
 
         PieceList[] pieces = board.GetAllPieceLists();
         foreach (PieceList pieceList in pieces)
         {
             foreach (Piece piece in pieceList)
             {
-                numPieces++;
+                
                 if (piece.IsWhite)
                 {
+                    numPiecesWhite++;
                     white += pieceValues[(int)piece.PieceType];
                 }
                 else
                 {
+                    numPiecesBlack++;
                     black += pieceValues[(int)piece.PieceType];
                 }
             }
         }
 
-        //float endgameWeight = numPieces < 10 ? (float)1 / (float)(numPieces + 64) : 0;
-        //int kingToCornerWeight = ForceKingToCorner(board.GetPieceList(PieceType.King, board.IsWhiteToMove)[0].Square.Index, board.GetPieceList(PieceType.King, !board.IsWhiteToMove)[0].Square.Index, endgameWeight);
+        float endgameWeight = ( (board.IsWhiteToMove && numPiecesBlack <= 3) || (!board.IsWhiteToMove && numPiecesWhite <= 3) ) ? (float)1 / (float)(64) : 0;
+        int kingToCornerWeight = ForceKingToCorner(board.GetPieceList(PieceType.King, board.IsWhiteToMove)[0].Square.Index, board.GetPieceList(PieceType.King, !board.IsWhiteToMove)[0].Square.Index, endgameWeight);
 
         int whosTurn = board.IsWhiteToMove ? 1 : -1;
-        Console.WriteLine("Endgame Weight: " + endgameWeight + " | King To Corner Weight: " + kingToCornerWeight);
 
         return ((white - black) * whosTurn) / 100;
         //return ((white - black + kingToCornerWeight) * whosTurn) / 100;
@@ -172,36 +171,32 @@ public class MyBot : IChessBot
         return (int)(evaluation * 10 * endgameWeight);
     }
 
-    bool IsPawnAttacking(Square targetSquare, ulong pawnAttackBoard)
+    bool IsPawnAttacking(Square targetSquare)
     {
         //check if move is in
-        if (BitboardHelper.SquareIsSet(pawnAttackBoard, targetSquare))
+        if (BitboardHelper.SquareIsSet(pawnAttackBitboard, targetSquare))
             return true;
         return false;
     }
 
     ulong GeneratePawnAttackMap(Board board)
     {
-        ulong pawnAttackBoard = 0;
+        ulong pawns = board.GetPieceBitboard(PieceType.Pawn, !board.IsWhiteToMove);
+        ulong pawnAttackBoard = 0b0;
 
-        foreach (Piece piece in board.GetPieceList(PieceType.Pawn, !board.IsWhiteToMove))
-            pawnAttackBoard = pawnAttackBoard | BitboardHelper.GetPawnAttacks(piece.Square, !board.IsWhiteToMove);
-        
+        for (int i = 0; i < 64; i++)
+        {
+            //if value on bitboard at index of i is 1
+            if ( (pawns & ((ulong)1 << i) ) != 0)
+                pawnAttackBoard = pawnAttackBoard | BitboardHelper.GetPawnAttacks(new Square(i), !board.IsWhiteToMove);
+        }
+
         return pawnAttackBoard;
     }
 
     int GetPieceValue(PieceType pieceType)
     {
         return pieceValues[(int)pieceType];
-    }
-
-    // Test if this move gives checkmate
-    bool MoveIsCheckmate(Board board, Move move)
-    {
-        board.MakeMove(move);
-        bool isMate = board.IsInCheckmate();
-        board.UndoMove(move);
-        return isMate;
     }
 
     //prioritize high value moves
@@ -231,7 +226,7 @@ public class MyBot : IChessBot
             }
 
             //moving into opponents pawns is bad
-            bool movingIntoPawnAttack = IsPawnAttacking(move.TargetSquare, pawnAttackBitboard);
+            bool movingIntoPawnAttack = IsPawnAttacking(move.TargetSquare);
             if (movingIntoPawnAttack)
             {
                 movePriority -= GetPieceValue(movePieceType);
@@ -265,38 +260,4 @@ public class MyBot : IChessBot
 
         return orderedMoveList;
     }
-
-    //public void GenerateAttacks(Board board, Move moveToPlay)
-    //{
-    //    board.MakeMove(moveToPlay);
-    //    board.ForceSkipTurn();
-    //    GenerateBitboard(board);
-    //    board.ForceSkipTurn();
-    //    board.UndoMove(moveToPlay);
-    //}
-
-    //public void GenerateBitboard(Board board)
-    //{
-    //    myAttackBitboard = 0;
-    //    foreach (Move move in board.GetLegalMoves())
-    //    {
-    //        myAttackBitboard = myAttackBitboard | BitboardHelper.GetPieceAttacks(move.MovePieceType, move.StartSquare, board, board.IsWhiteToMove);
-    //    }
-    //    if (bitboardOn)
-    //        BitboardHelper.VisualizeBitboard(myAttackBitboard);
-    //}
-
-    //public void ToggleBitboard(Board board)
-    //{
-    //    if (bitboardOn)
-    //    {
-    //        BitboardHelper.StopVisualizingBitboard();
-    //        bitboardOn = false;
-    //    }
-    //    else
-    //    {
-    //        BitboardHelper.VisualizeBitboard(myAttackBitboard);
-    //        bitboardOn = true;
-    //    }
-    //}
 }
