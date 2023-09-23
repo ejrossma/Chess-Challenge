@@ -16,7 +16,7 @@ public class MyBot : IChessBot
         return rootMove;
 
         //functions inside of Think so don't need to reference board again to save tokens
-        long Negamax(int remainingDepth, long alpha, long beta)
+        int Negamax(int remainingDepth, int alpha, int beta)
         {
             if (board.IsDraw())
                 return 0;
@@ -24,7 +24,7 @@ public class MyBot : IChessBot
                 return 90000;
 
             //more moves = more ability find tactics/take control of the board
-            long score = -board.GetLegalMoves().Count() + Evaluate();
+            int score = -board.GetLegalMoves().Count() + Evaluate();
 
             //check alpha & beta
             if (remainingDepth <= 0)
@@ -56,15 +56,49 @@ public class MyBot : IChessBot
             return alpha;
         }
 
-        long Evaluate()
+        int Evaluate()
         {
-            long eval = 0;
+            int eval = 0;
+            int enemyPawnCount = 0;
             foreach (PieceList pieces in board.GetAllPieceLists())
             {
                 //count of pieces in list * value of that type of piece * color of that type of piece
                 eval += pieces.Count * (pieceValues[(int)pieces.TypeOfPieceInList]) * (pieces.IsWhitePieceList == board.IsWhiteToMove ? -1 : 1);
+
+                //count opponent pieces (first attempt with pawns)
+                if (pieces.IsWhitePieceList != board.IsWhiteToMove && pieces.TypeOfPieceInList == PieceType.Pawn)
+                    enemyPawnCount += 1;
             }
-            return eval;
+
+            //get kings
+            int opKingIndex = board.GetPieceList(PieceType.King, !board.IsWhiteToMove)[0].Square.Index;
+            int myKingIndex = board.GetPieceList(PieceType.King, board.IsWhiteToMove)[0].Square.Index;
+
+            //if no enemy pawns left force king to corner
+            if (enemyPawnCount <= 1)
+                return eval + (int)(4.7 * centerManhattanDistance(opKingIndex)) + (int)(1.6 * (14 - manhattanDistance(myKingIndex, opKingIndex)));
+            else
+                return eval;
+        }
+
+        //gets distance between 2 kings
+        int manhattanDistance(int myKing, int opKing)
+        {
+            int file1 = myKing & 7;
+            int file2 = opKing & 7;
+            int rank1 = myKing >> 3;
+            int rank2 = opKing >> 3;
+            return Math.Abs(rank2 - rank1) + Math.Abs(file2 - file1);
+        }
+
+        //gets weight of king to edge of board
+        int centerManhattanDistance(int king)
+        {
+            int file = king & 7;
+            int rank = king >> 3;
+            file ^= (file - 4) >> 8;
+            rank ^= (rank - 4) >> 8;
+            return (file + rank) & 7;
         }
     }
 }

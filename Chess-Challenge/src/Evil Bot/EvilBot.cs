@@ -6,8 +6,6 @@ using System.Linq;
 
 namespace ChessChallenge.Example
 {
-    // A simple bot that can spot mate in one, and always captures the most valuable piece it can.
-    // Plays randomly otherwise.
     public class EvilBot : IChessBot
     {
         Move rootMove;
@@ -27,14 +25,6 @@ namespace ChessChallenge.Example
                 foreach (var pieceList in board.GetAllPieceLists())
                     score += pieceList.Count * (1013860005146900480 >> 10 * (int)pieceList.TypeOfPieceInList & 0x3ff)
                                              * (pieceList.IsWhitePieceList == board.IsWhiteToMove ? -1 : 1);
-
-                //
-                // long score = board.IsInCheckmate() ? 30_000 /*+ remainingDepth*/ : board.GetAllPieceLists().Select(pieceList => 
-                //             // same as new int[]{ 0, 120, 300, 310, 500, 900, 0 }[(int)pieceList.TypeOfPieceInList]
-                //             pieceList.Count * (1013860005146900480 >> 10 * (int)pieceList.TypeOfPieceInList & 0x3ff)
-                //                             * (pieceList.IsWhitePieceList == board.IsWhiteToMove ? -1 : 1)).Sum()
-                //         - board.GetLegalMoves().Count();
-                //
 
                 if (remainingDepth <= 0)
                 {
