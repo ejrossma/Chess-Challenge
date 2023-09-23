@@ -13,7 +13,7 @@ namespace ChessChallenge.Example
         public Move Think(Board board, Timer _)
         {
 
-            negamax(5, 32_000, -32_000);
+            negamax(4, 32_000, -32_000);
             return rootMove;
 
             long negamax(int remainingDepth, long alpha, long beta)
@@ -40,7 +40,7 @@ namespace ChessChallenge.Example
                     board.UndoMove(move);
                     if (score < alpha)
                     {
-                        if (remainingDepth == 5)
+                        if (remainingDepth == 4)
                             rootMove = move;
                         alpha = score;
                         if (score <= beta) break;

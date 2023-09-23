@@ -59,24 +59,20 @@ public class MyBot : IChessBot
         int Evaluate()
         {
             int eval = 0;
-            int enemyPawnCount = 0;
             foreach (PieceList pieces in board.GetAllPieceLists())
             {
                 //count of pieces in list * value of that type of piece * color of that type of piece
                 eval += pieces.Count * (pieceValues[(int)pieces.TypeOfPieceInList]) * (pieces.IsWhitePieceList == board.IsWhiteToMove ? -1 : 1);
-
-                //count opponent pieces (first attempt with pawns)
-                if (pieces.IsWhitePieceList != board.IsWhiteToMove && pieces.TypeOfPieceInList == PieceType.Pawn)
-                    enemyPawnCount += 1;
             }
 
-            //get kings
-            int opKingIndex = board.GetPieceList(PieceType.King, !board.IsWhiteToMove)[0].Square.Index;
-            int myKingIndex = board.GetPieceList(PieceType.King, board.IsWhiteToMove)[0].Square.Index;
-
             //if no enemy pawns left force king to corner
-            if (enemyPawnCount <= 1)
+            if (board.GetPieceList(PieceType.Pawn, !board.IsWhiteToMove).Count <= 1)
+            {
+                //get kings
+                int opKingIndex = board.GetPieceList(PieceType.King, !board.IsWhiteToMove)[0].Square.Index;
+                int myKingIndex = board.GetPieceList(PieceType.King, board.IsWhiteToMove)[0].Square.Index;
                 return eval + (int)(4.7 * centerManhattanDistance(opKingIndex)) + (int)(1.6 * (14 - manhattanDistance(myKingIndex, opKingIndex)));
+            }
             else
                 return eval;
         }
